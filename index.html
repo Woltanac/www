@@ -1,51 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Woltanac - Radical Experiments Hub</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Woltanac</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="hero">
-        <div class="container">
-            <h1 class="title">Woltanac</h1>
-            <p class="subtitle">Igniting Radical Experiments in the Digital Void</p>
-            <div class="cta">
-                <button id="launch-btn" class="btn-rad">Launch the Lab</button>
-            </div>
-        </div>
-    </header>
+  <header>
+    <h1>Woltanac</h1>
+    <p>A mythic identity above, at, and below the Earth. Welcome to the elemental brand experience.</p>
+  </header>
 
-    <section class="experiments">
-        <div class="container">
-            <h2>Current Chaos</h2>
-            <div class="grid">
-                <div class="card">
-                    <h3>Experiment #1: Neon Dreams</h3>
-                    <p>Glitchy visuals that warp reality.</p>
-                </div>
-                <div class="card">
-                    <h3>Experiment #2: Quantum Echo</h3>
-                    <p>Echoes of code across dimensions.</p>
-                </div>
-                <div class="card">
-                    <h3>Experiment #3: Void Walker</h3>
-                    <p>Navigating the uncharted code abyss.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+  <section class="social-icons">
+    <!-- Common + Uncommon Social Media Placeholders -->
+    <div class="icon" title="Facebook">📘</div>
+    <div class="icon" title="Twitter/X">🐦</div>
+    <div class="icon" title="Instagram">📸</div>
+    <div class="icon" title="LinkedIn">💼</div>
+    <div class="icon" title="YouTube">📺</div>
+    <div class="icon" title="TikTok">🎵</div>
+    <div class="icon" title="Pinterest">📌</div>
+    <div class="icon" title="Reddit">👽</div>
+    <div class="icon" title="Mastodon">🦣</div>
+    <div class="icon" title="Bluesky">🌌</div>
+    <div class="icon" title="Threads">🧵</div>
+    <div class="icon" title="Snapchat">👻</div>
+    <div class="icon" title="Substack">📰</div>
+    <div class="icon" title="Twitch">🎮</div>
+    <div class="icon" title="Discord">💬</div>
+    <div class="icon" title="GitHub">🐙</div>
+  </section>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Woltanac. Built for the edge.</p>
-        </div>
-    </footer>
+  <footer>
+    &copy; <span id="year"></span> Woltanac. All rights reserved.
+  </footer>
 
-    <script src="script.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
 </body>
-
 </html>
-
