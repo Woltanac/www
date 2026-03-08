@@ -2,43 +2,417 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Woltanac</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+  <title>Three.js — Infinite Forest + Random Cabins</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#000; }
+    canvas { display:block; }
+    #info {
+      position: absolute;
+      top: 10px; left: 10px;
+      color: #0f0; font-family: monospace;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #clickToStart {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-size: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <h1>Woltanac</h1>
-    <p>A mythic identity above, at, and below the Earth. Welcome to the elemental brand experience.</p>
-  </header>
+<div id="info">WASD = move • Space = jump • Explore — trees & cabins appear as you wander</div>
+<div id="clickToStart">Click to start</div>
 
-  <section class="social-icons">
-    <!-- Common + Uncommon Social Media Placeholders -->
-    <div class="icon" title="Facebook">📘</div>
-    <div class="icon" title="Twitter/X">🐦</div>
-    <div class="icon" title="Instagram">📸</div>
-    <div class="icon" title="LinkedIn">💼</div>
-    <div class="icon" title="YouTube">📺</div>
-    <div class="icon" title="TikTok">🎵</div>
-    <div class="icon" title="Pinterest">📌</div>
-    <div class="icon" title="Reddit">👽</div>
-    <div class="icon" title="Mastodon">🦣</div>
-    <div class="icon" title="Bluesky">🌌</div>
-    <div class="icon" title="Threads">🧵</div>
-    <div class="icon" title="Snapchat">👻</div>
-    <div class="icon" title="Substack">📰</div>
-    <div class="icon" title="Twitch">🎮</div>
-    <div class="icon" title="Discord">💬</div>
-    <div class="icon" title="GitHub">🐙</div>
-  </section>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
 
-  <footer>
-    &copy; <span id="year"></span> Woltanac. All rights reserved.
-  </footer>
+// ────────────────────────────────────────────────
+// CONFIG
+// ────────────────────────────────────────────────
+const CHUNK_SIZE = 45;
+const LOAD_AROUND = 3;
+const DESPAWN_RADIUS = 160;
+const TREES_PER_CHUNK = 7;
+const CABIN_SPAWN_CHANCE = 0.18;     // ~18% of eligible chunks get a cabin
+const CABIN_MIN_DISTANCE = 80;       // don't spawn too close to player start
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+// ────────────────────────────────────────────────
+// Scene
+// ────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.0007);
+
+const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(0, 3, 12);
+
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const sun = new THREE.DirectionalLight(0xffffe5, 1.2);
+sun.position.set(15, 40, 20);
+scene.add(sun);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(3000, 3000),
+  new THREE.MeshStandardMaterial({ color: 0x2d5016, roughness: 0.95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.01;
+scene.add(ground);
+
+// ────────────────────────────────────────────────
+// Tree factory (unchanged)
+// ────────────────────────────────────────────────
+function createLowPolyTree() {
+  const params = {
+    trunkHeight: 5.0 * THREE.MathUtils.randFloat(0.75, 1.35),
+    trunkRadius: 0.6 * THREE.MathUtils.randFloat(0.65, 1.25),
+    crownScale: 1.8 * THREE.MathUtils.randFloat(0.85, 1.45),
+    crownLevels: Math.floor(THREE.MathUtils.randFloat(3.1, 5.1)),
+    branchAngle: 0.7
+  };
+
+  const group = new THREE.Group();
+  group.scale.setScalar(0.6);
+
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(params.trunkRadius * 0.4, params.trunkRadius, params.trunkHeight, 6, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.85 })
+  );
+  trunk.position.y = params.trunkHeight / 2;
+  trunk.castShadow = true;
+  group.add(trunk);
+
+  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 1.0 });
+  let y = params.trunkHeight - 0.5;
+  let radius = params.trunkRadius * params.crownScale;
+  for (let i = 0; i < params.crownLevels; i++) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, 2.2 + i * 0.4, 7), foliageMat);
+    cone.position.y = y;
+    cone.rotation.x = (Math.random() - 0.5) * 0.2;
+    cone.castShadow = true;
+    group.add(cone);
+    y += cone.geometry.parameters.height * 0.55;
+    radius *= 0.68;
+  }
+
+  const branchMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.85 });
+  for (let i = 0; i < 5 + Math.floor(Math.random() * 2); i++) {
+    const len = 1.5 + Math.random() * 1.5;
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.04, len, 5), branchMat);
+    const ang = i * (Math.PI * 2 / 5) + Math.random() * 0.6;
+    branch.position.set(Math.cos(ang) * 1.1, params.trunkHeight * 0.6 + Math.random() * 1.5, Math.sin(ang) * 1.1);
+    branch.rotation.z = Math.PI / 2 + params.branchAngle * (Math.random() - 0.5);
+    branch.rotation.y = ang;
+    group.add(branch);
+  }
+
+  group.rotation.y = Math.random() * Math.PI * 2;
+  group.scale.multiplyScalar(THREE.MathUtils.randFloat(0.9, 1.2));
+  return group;
+}
+
+// ────────────────────────────────────────────────
+// Cabin factory (procedural low-poly log cabin)
+// ────────────────────────────────────────────────
+function createCabin() {
+  const width = THREE.MathUtils.randFloat(4.5, 7.5);
+  const depth = THREE.MathUtils.randFloat(5.5, 9.5);
+  const height = THREE.MathUtils.randFloat(3.2, 5.0);
+  const roofPitch = THREE.MathUtils.randFloat(0.9, 1.4);
+  const hasPorch = Math.random() < 0.6;
+  const hasChimney = Math.random() < 0.7;
+  const windowCount = Math.floor(THREE.MathUtils.randFloat(3, 7));
+
+  const group = new THREE.Group();
+  group.scale.setScalar(0.4); // start small
+
+  const logMat = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.8 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x4a2c0d, roughness: 0.9 });
+
+  // Base (walls)
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    logMat
+  );
+  base.position.y = height / 2;
+  group.add(base);
+
+  // Roof (simple gabled)
+  const roofHeight = depth * roofPitch * 0.5;
+  const roofGeo = new THREE.ConeGeometry(Math.hypot(width/2, depth/2), roofHeight * 2, 4, 1, true);
+  roofGeo.rotateX(Math.PI / 2);
+  roofGeo.scale(1, 1, roofPitch);
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.y = height + roofHeight / 2;
+  roof.rotation.y = Math.PI / 4;
+  group.add(roof);
+
+  // Door (simple)
+  const door = new THREE.Mesh(
+    new THREE.BoxGeometry(0.9, 1.8, 0.2),
+    new THREE.MeshStandardMaterial({ color: 0x3d2b1f })
+  );
+  door.position.set(0, 0.9, depth/2 + 0.1);
+  group.add(door);
+
+  // Windows (random positions)
+  for (let i = 0; i < windowCount; i++) {
+    const win = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.8, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0xadd8e6, emissive: 0x88ccff, emissiveIntensity: 0.15 })
+    );
+    const side = Math.floor(Math.random() * 4);
+    const posX = side % 2 === 0 ? THREE.MathUtils.randFloatSpread(width * 0.6) : (side === 1 ? width/2 - 0.3 : -width/2 + 0.3);
+    const posZ = side % 2 === 1 ? THREE.MathUtils.randFloatSpread(depth * 0.6) : (side === 0 ? depth/2 - 0.3 : -depth/2 + 0.3);
+    win.position.set(posX, THREE.MathUtils.randFloat(1.2, height - 1.0), posZ);
+    group.add(win);
+  }
+
+  // Optional porch
+  if (hasPorch) {
+    const porch = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.7, 0.3, 2.2),
+      logMat
+    );
+    porch.position.set(0, 0.15, depth/2 + 1.0);
+    group.add(porch);
+  }
+
+  // Optional chimney
+  if (hasChimney) {
+    const chim = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 2.0 + Math.random() * 1.5, 0.6),
+      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7 })
+    );
+    chim.position.set(THREE.MathUtils.randFloatSpread(width * 0.4), height + chim.geometry.parameters.height/2 + roofHeight/2, -depth/2 + 0.8);
+    group.add(chim);
+  }
+
+  group.rotation.y = Math.random() * Math.PI * 2;
+  return group;
+}
+
+// ────────────────────────────────────────────────
+// Forest & Cabin manager
+// ────────────────────────────────────────────────
+const objects = new Map(); // id → {type: 'tree'|'cabin', mesh}
+let currentChunkX = -999;
+let currentChunkZ = -999;
+
+function spawnTrees(cx, cz) {
+  const keyBase = `t_${cx}_${cz}`;
+  const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const centerZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+
+  for (let i = 0; i < TREES_PER_CHUNK; i++) {
+    const tree = createLowPolyTree();
+    const ox = THREE.MathUtils.randFloatSpread(CHUNK_SIZE * 0.85);
+    const oz = THREE.MathUtils.randFloatSpread(CHUNK_SIZE * 0.85);
+    tree.position.set(centerX + ox, 0, centerZ + oz);
+    scene.add(tree);
+    objects.set(keyBase + '_' + i, {type: 'tree', mesh: tree});
+  }
+}
+
+function spawnCabin(cx, cz) {
+  const key = `c_${cx}_${cz}`;
+  if (objects.has(key)) return;
+
+  const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const centerZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const cabin = createCabin();
+  const ox = THREE.MathUtils.randFloatSpread(CHUNK_SIZE * 0.4);
+  const oz = THREE.MathUtils.randFloatSpread(CHUNK_SIZE * 0.4);
+  cabin.position.set(centerX + ox, 0, centerZ + oz);
+  scene.add(cabin);
+  objects.set(key, {type: 'cabin', mesh: cabin});
+}
+
+// ────────────────────────────────────────────────
+// Player
+// ────────────────────────────────────────────────
+const player = new THREE.Group();
+player.position.y = 0.9;
+
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3366ff, roughness: 0.7 });
+const limbMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.6 });
+
+const torso   = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.3), bodyMat); torso.position.y = 1.1; player.add(torso);
+const head    = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), bodyMat); head.position.y = 1.7; player.add(head);
+const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.7, 6), limbMat); leftArm.position.set(-0.35,1.1,0); leftArm.rotation.z = Math.PI/2; player.add(leftArm);
+const rightArm= leftArm.clone(); rightArm.position.x = 0.35; player.add(rightArm);
+const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.9, 6), limbMat); leftLeg.position.set(-0.15,0.45,0); player.add(leftLeg);
+const rightLeg= leftLeg.clone(); rightLeg.position.x = 0.15; player.add(rightLeg);
+
+const limbs = { leftArm, rightArm, leftLeg, rightLeg };
+scene.add(player);
+
+let velocityY = 0;
+const jumpStrength = 26;   // your preferred value
+const gravity = -32;
+const groundY = 0.9;
+
+// ────────────────────────────────────────────────
+// Controls
+// ────────────────────────────────────────────────
+const keys = {};
+const clickToStart = document.getElementById('clickToStart');
+clickToStart.addEventListener('click', () => {
+  clickToStart.style.display = 'none';
+  renderer.domElement.focus();
+});
+
+window.addEventListener('keydown', e => {
+  e.preventDefault();
+  const key = e.key.toLowerCase();
+  keys[key] = true;
+  if (key === ' ' && player.position.y <= groundY + 0.25) {
+    velocityY = jumpStrength;
+  }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ────────────────────────────────────────────────
+// Animate
+// ────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let walkTime = 0;
+
+const cameraLerpSpeed = 3.0;
+const turnSpeed = 5.0;
+const moveSpeed = 6.0;
+
+function animate() {
+  const dt = clock.getDelta();
+  walkTime += dt * 8;
+
+  // Movement
+  const input = new THREE.Vector3();
+  if (keys['w']) input.z -= 1;
+  if (keys['s']) input.z += 1;
+  if (keys['a']) input.x -= 1;
+  if (keys['d']) input.x += 1;
+
+  const isMoving = input.lengthSq() > 0;
+  if (isMoving) {
+    input.normalize();
+    const forward = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+    const right   = new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
+    const worldMove = new THREE.Vector3()
+      .addScaledVector(forward, -input.z)
+      .addScaledVector(right, input.x)
+      .multiplyScalar(moveSpeed * dt);
+    player.position.add(worldMove);
+
+    if (worldMove.lengthSq() > 0.001) {
+      const targetDir = worldMove.clone().normalize(); targetDir.y = 0;
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,-1), targetDir);
+      player.quaternion.slerp(targetQuat, turnSpeed * dt);
+    }
+  }
+
+  // Physics
+  velocityY += gravity * dt;
+  if (velocityY < 0) velocityY += gravity * dt * 0.5; // snappier fall
+  player.position.y += velocityY * dt;
+  if (player.position.y <= groundY + 0.02) {
+    player.position.y = groundY;
+    if (velocityY < 0) velocityY = 0;
+  }
+
+  // Chunk loading
+  const px = player.position.x;
+  const pz = player.position.z;
+  const cx = Math.floor(px / CHUNK_SIZE);
+  const cz = Math.floor(pz / CHUNK_SIZE);
+
+  if (cx !== currentChunkX || cz !== currentChunkZ) {
+    for (let dx = -LOAD_AROUND; dx <= LOAD_AROUND; dx++) {
+      for (let dz = -LOAD_AROUND; dz <= LOAD_AROUND; dz++) {
+        const tx = cx + dx;
+        const tz = cz + dz;
+        const tKey = `t_${tx}_${tz}`;
+
+        // Trees
+        if (!objects.has(tKey + '_0')) {  // simple check for chunk
+          spawnTrees(tx, tz);
+        }
+
+        // Cabins (rarer)
+        const cKey = `c_${tx}_${tz}`;
+        if (!objects.has(cKey) && Math.random() < CABIN_SPAWN_CHANCE) {
+          const distToPlayer = Math.hypot(tx * CHUNK_SIZE - px, tz * CHUNK_SIZE - pz);
+          if (distToPlayer > CABIN_MIN_DISTANCE) {
+            spawnCabin(tx, tz);
+          }
+        }
+      }
+    }
+    currentChunkX = cx;
+    currentChunkZ = cz;
+  }
+
+  // Growth + despawn loop
+  for (const [id, obj] of objects) {
+    const dist = player.position.distanceTo(obj.mesh.position);
+    const targetScale = THREE.MathUtils.clamp(
+      THREE.MathUtils.mapLinear(dist, 4, 40, 2.2, 0.4),
+      0.4, 2.2
+    );
+    obj.mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 5 * dt);
+
+    if (dist > DESPAWN_RADIUS && targetScale < 0.55) {
+      scene.remove(obj.mesh);
+      objects.delete(id);
+    }
+  }
+
+  // Animation
+  if (player.position.y > groundY + 0.2) {
+    limbs.leftArm.rotation.x = limbs.rightArm.rotation.x = -0.6;
+    limbs.leftLeg.rotation.x = limbs.rightLeg.rotation.x = 0.4;
+  } else if (isMoving) {
+    const swing = Math.sin(walkTime) * 0.8;
+    const opp = Math.sin(walkTime + Math.PI) * 0.8;
+    limbs.leftArm.rotation.x  = swing;
+    limbs.rightArm.rotation.x = opp;
+    limbs.leftLeg.rotation.x  = opp * 1.1;
+    limbs.rightLeg.rotation.x = swing * 1.1;
+    player.position.y = groundY + Math.sin(walkTime * 2) * 0.03;
+  } else {
+    limbs.leftArm.rotation.x = limbs.rightArm.rotation.x = limbs.leftLeg.rotation.x = limbs.rightLeg.rotation.x = 0;
+    player.position.y = groundY;
+  }
+
+  // Camera
+  const idealOffset = new THREE.Vector3(0, 4, 10).applyQuaternion(player.quaternion);
+  camera.position.lerp(player.position.clone().add(idealOffset), cameraLerpSpeed * dt);
+  camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.6, 0)));
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
 </body>
 </html>
