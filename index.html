@@ -29,11 +29,22 @@ button.big{background:#d8402a;border-color:#ff7a5a;color:#fff;font-size:20px;pad
 #touch{display:none}#joy{position:fixed;left:24px;bottom:24px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.25);pointer-events:auto}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,226,176,.5)}
 #tbtns{position:fixed;right:20px;bottom:24px;display:grid;grid-template-columns:70px 70px;gap:10px;pointer-events:auto}#tbtns button{min-width:0;padding:16px 0;opacity:.85}
+#lvl{pointer-events:auto;cursor:pointer;transition:opacity .4s}#lvl .ib{display:none;margin-left:6px;font-size:11px;border:1px solid #ffd79a;border-radius:50%;padding:0 5px;color:#ffd79a}
+#lvl.mini #lvlObj{display:none}#lvl.mini .ib{display:inline}#lvl.mini{opacity:.7}#lvl.gone{display:none}
+#infoBtn{display:none;position:absolute;top:10px;left:10px;pointer-events:auto;min-width:0;width:30px;height:30px;padding:0;border-radius:50%;font-size:15px;opacity:.8}#infoBtn.on{display:block}
+body.mob #lvl{top:6px;left:6px;max-width:calc(100% - 160px);padding:5px 9px}body.mob #lvl b{font-size:12px}body.mob #lvl div{font-size:11px}
+body.mob #lvl:not(.mini) #lvlObj{max-height:38vh;overflow:auto}
+body.mob #lvl.mini b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;max-width:calc(100vw - 210px);vertical-align:middle}
+body.mob #meters{top:6px;right:6px;width:140px;font-size:10px;padding:5px 9px}body.mob #timer{font-size:14px}body.mob .bar{height:6px;margin:2px 0 4px}
+body.mob #compass{top:auto;bottom:auto;top:48px;font-size:10px;padding:3px 8px}body.mob #arrow{font-size:18px}
+body.mob #prompt{bottom:178px;font-size:13px;max-width:70vw}body.mob #prog{width:140px}body.mob #toast{font-size:16px;top:30%}
+body.mob.playing #footer{display:none}body.mob #lvl:not(.mini):not(.gone)~#compass{visibility:hidden}
+@media (orientation:landscape){body.mob #compass{top:6px}body.mob #prompt{bottom:16px;max-width:46vw}body.mob #joy{width:110px;height:110px;left:16px;bottom:16px}body.mob #knob{left:30px;top:30px}body.mob #tbtns{grid-template-columns:62px 62px;right:12px;bottom:12px;gap:8px}body.mob #tbtns button{padding:11px 0}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}</script>
 </head><body>
 <div id="hud">
- <div id="lvl" class="panel"><b id="lvlName"></b><div id="lvlObj"></div></div>
+ <button id="infoBtn" title="Level info (H)">i</button><div id="lvl" class="panel"><b id="lvlName"></b><span class="ib">i</span><div id="lvlObj"></div></div>
  <div id="meters" class="panel"><div id="timer"></div>NOISE<div class="bar" id="noise"><i></i></div>SPOTTED<div class="bar" id="detect"><i></i></div><div id="state" style="opacity:.8"></div></div>
  <div id="compass" class="panel"><span id="arrow">▲</span><div id="cdist"></div></div>
  <div id="prompt" class="panel"><span id="ptext"></span><div class="bar" id="prog"><i></i></div></div>
@@ -45,7 +56,7 @@ button.big{background:#d8402a;border-color:#ff7a5a;color:#fff;font-size:20px;pad
  <div class="sub">Wander the Woltco woods. Find the cabins. Sneak in. Steal the snacks.</div>
  <button class="big" id="play">Play</button>
  <div class="levels" id="levels"></div>
- <div class="ctl"><kbd>WASD</kbd> move · <kbd>Shift</kbd> sneak (quiet) · <kbd>Space</kbd> jump / leap off tree · <kbd>C</kbd> climb tree · <kbd>E</kbd> squeeze / chew / grab (hold) · drag mouse or <kbd>←→↑↓</kbd> camera · <kbd>R</kbd> retry · <kbd>Esc</kbd> menu</div>
+ <div class="ctl"><kbd>WASD</kbd> move · <kbd>Shift</kbd> sneak (quiet) · <kbd>Space</kbd> jump / leap off tree · <kbd>C</kbd> climb tree · <kbd>E</kbd> squeeze / chew / grab (hold) · drag mouse or <kbd>←→↑↓</kbd> camera · <kbd>R</kbd> retry · <kbd>H</kbd> hide info · <kbd>Esc</kbd> menu</div>
 </div></div>
 <div id="end" class="screen" style="display:none"><div class="card"><h1 id="endT"></h1><div class="sub" id="endS"></div><button class="big" id="endBtn"></button> <button id="endMenu">Menu</button></div></div>
 <div id="footer">WOLTCO<i>.</i></div>

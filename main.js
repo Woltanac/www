@@ -357,7 +357,14 @@ addEventListener('pointermove', e => { if (drag && drag.id === e.pointerId) { ca
 addEventListener('pointerup', e => { if (drag && drag.id === e.pointerId) drag = null; });
 addEventListener('wheel', e => camDist = THREE.MathUtils.clamp(camDist + e.deltaY * .003, 2.5, 9));
 // touch
-const isTouch = 'ontouchstart' in window; let joy = { x: 0, y: 0 }, sneakToggle = false;
+const isTouch = 'ontouchstart' in window;
+const isMob = () => isTouch || innerWidth < 760 || innerHeight < 480; const setMob = () => document.body.classList.toggle('mob', isMob()); setMob(); addEventListener('resize', setMob);
+let infoTimer = 0; const lvlEl = $('lvl'), infoBtn = $('infoBtn');
+function infoShow(full) { lvlEl.classList.remove('gone'); infoBtn.classList.remove('on'); lvlEl.classList.toggle('mini', !full); clearTimeout(infoTimer); if (full && isMob()) infoTimer = setTimeout(() => lvlEl.classList.add('mini'), 4000); }
+function infoHide() { clearTimeout(infoTimer); lvlEl.classList.add('gone'); infoBtn.classList.add('on'); }
+lvlEl.addEventListener('pointerdown', e => { e.stopPropagation(); infoShow(lvlEl.classList.contains('mini')); });
+infoBtn.addEventListener('pointerdown', e => { e.stopPropagation(); infoShow(true); });
+addEventListener('keydown', e => { if (e.code === 'KeyH' && state !== 'menu') lvlEl.classList.contains('gone') ? infoShow(true) : infoHide(); }); let joy = { x: 0, y: 0 }, sneakToggle = false;
 if (isTouch) {
   $('touch').style.display = 'block'; const J = $('joy'), K = $('knob');
   const jm = e => { const r = J.getBoundingClientRect(), t = e.targetTouches[0]; let x = (t.clientX - r.left - 65) / 50, y = (t.clientY - r.top - 65) / 50; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } joy = { x, y }; K.style.left = 40 + x * 40 + 'px'; K.style.top = 40 + y * 40 + 'px'; e.preventDefault(); };
@@ -370,11 +377,11 @@ let state = 'menu', noise = 0, timeLeft = 0, carried = false, toastT = 0;
 function toast(s, ms = 1500) { $('toast').innerHTML = s; $('toast').style.opacity = 1; toastT = ms / 1000; }
 const save = JSON.parse(localStorage.getItem('sqh') || '{"unlocked":1}');
 function showMenu() {
-  state = 'menu'; $('start').style.display = 'flex'; $('hud').style.display = 'none'; hideEnd();
+  state = 'menu'; document.body.classList.remove('playing'); $('start').style.display = 'flex'; $('hud').style.display = 'none'; hideEnd();
   const lv = $('levels'); lv.innerHTML = '';
   LEVELS.forEach((l, i) => { const b = document.createElement('button'); b.innerHTML = `${i + 1}. ${l.name}${i >= save.unlocked ? ' 🔒' : ''}`; b.disabled = i >= save.unlocked; b.onclick = () => startLevel(i); lv.appendChild(b); });
 }
-function startLevel(i) { $('start').style.display = 'none'; $('hud').style.display = 'block'; hideEnd(); loadLevel(i); }
+function startLevel(i) { $('start').style.display = 'none'; $('hud').style.display = 'block'; hideEnd(); loadLevel(i); document.body.classList.add('playing'); infoShow(true); }
 function hideEnd() { $('end').style.display = 'none'; }
 function endGame(win, msg) {
   state = win ? 'won' : 'lost'; $('end').style.display = 'flex';
